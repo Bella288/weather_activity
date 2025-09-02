@@ -200,7 +200,7 @@
         </header>
         
         <div class="input-section">
-            <input type="text" id="location-input" placeholder="Enter ZIP code or address">
+            <input type="text" id="location-input" placeholder="Enter ZIP code or city name">
             <button id="get-weather">Get Weather & Activity</button>
         </div>
         
@@ -271,7 +271,6 @@
             
             let updateInterval;
             let currentCoordinates = null;
-            let currentZoneId = null;
             
             // Event listener for the get weather button
             getWeatherBtn.addEventListener('click', function() {
@@ -279,7 +278,7 @@
                 if (location) {
                     getWeatherData(location);
                 } else {
-                    showError('Please enter a ZIP code or address');
+                    showError('Please enter a ZIP code or city name');
                 }
             });
             
@@ -290,15 +289,18 @@
                 hideAlert();
                 
                 try {
-                    // First, geocode the location to get coordinates
-                    const geocodeResponse = await fetch(`https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(location)}&benchmark=2020&format=json`);
+                    // Use OpenStreetMap's Nominatim API for geocoding (CORS-friendly)
+                    const geocodeResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`);
                     const geocodeData = await geocodeResponse.json();
                     
-                    if (geocodeData.result.addressMatches.length === 0) {
-                        throw new Error('Location not found. Please try a different ZIP code or address.');
+                    if (geocodeData.length === 0) {
+                        throw new Error('Location not found. Please try a different ZIP code or city name.');
                     }
                     
-                    const coordinates = geocodeData.result.addressMatches[0].coordinates;
+                    const coordinates = {
+                        y: geocodeData[0].lat,
+                        x: geocodeData[0].lon
+                    };
                     currentCoordinates = coordinates;
                     
                     // Get the NWS grid point based on coordinates
@@ -329,19 +331,16 @@
                     }
                     const stationsData = await stationsResponse.json();
                     
-                    // Get zone ID for alerts
-                    currentZoneId = pointsData.properties.county.split('/').pop();
-                    
-                    // Check for active alerts
-                    const alertsResponse = await fetch(`https://api.weather.gov/alerts/active/zone/${currentZoneId}`);
-                    let activeAlerts = [];
+                    // Get alerts for the area
+                    const countyCode = pointsData.properties.county.split('/').pop();
+                    const alertsResponse = await fetch(`https://api.weather.gov/alerts/active/zone/${countyCode}`);
+                    let alertsData = { features: [] };
                     if (alertsResponse.ok) {
-                        const alertsData = await alertsResponse.json();
-                        activeAlerts = alertsData.features;
+                        alertsData = await alertsResponse.json();
                     }
                     
                     // Display the weather data
-                    displayWeatherData(pointsData.properties.relativeLocation.properties, stationsData.properties, forecastData.properties.periods[0], activeAlerts);
+                    displayWeatherData(geocodeData[0].display_name, stationsData.properties, forecastData.properties.periods[0], alertsData.features);
                     
                     // Start the update interval (every minute)
                     if (updateInterval) {
@@ -349,7 +348,7 @@
                     }
                     updateInterval = setInterval(() => {
                         if (currentCoordinates) {
-                            updateWeatherData(currentCoordinates, currentZoneId);
+                            updateWeatherData(currentCoordinates);
                         }
                     }, 60000);
                     
@@ -361,7 +360,7 @@
             }
             
             // Function to update weather data using coordinates
-            async function updateWeatherData(coordinates, zoneId) {
+            async function updateWeatherData(coordinates) {
                 try {
                     // Get the NWS grid point based on coordinates
                     const pointsResponse = await fetch(`https://api.weather.gov/points/${coordinates.y},${coordinates.x}`);
@@ -391,16 +390,16 @@
                     }
                     const forecastData = await forecastResponse.json();
                     
-                    // Check for active alerts
-                    const alertsResponse = await fetch(`https://api.weather.gov/alerts/active/zone/${zoneId}`);
-                    let activeAlerts = [];
+                    // Get alerts for the area
+                    const countyCode = pointsData.properties.county.split('/').pop();
+                    const alertsResponse = await fetch(`https://api.weather.gov/alerts/active/zone/${countyCode}`);
+                    let alertsData = { features: [] };
                     if (alertsResponse.ok) {
-                        const alertsData = await alertsResponse.json();
-                        activeAlerts = alertsData.features;
+                        alertsData = await alertsResponse.json();
                     }
                     
                     // Update the weather display
-                    displayWeatherData(pointsData.properties.relativeLocation.properties, stationsData.properties, forecastData.properties.periods[0], activeAlerts);
+                    displayWeatherData(locationName.textContent, stationsData.properties, forecastData.properties.periods[0], alertsData.features);
                     
                 } catch (error) {
                     console.error('Error updating weather data:', error);
@@ -408,9 +407,9 @@
             }
             
             // Function to display weather data
-            function displayWeatherData(locationProps, observation, forecast, alerts) {
+            function displayWeatherData(locationNameText, observation, forecast, alerts) {
                 // Display location information
-                locationName.textContent = `${locationProps.city}, ${locationProps.state}`;
+                locationName.textContent = locationNameText;
                 
                 // Convert temperature from Celsius to Fahrenheit
                 const tempFahrenheit = observation.temperature.value ? (observation.temperature.value * 9/5 + 32).toFixed(0) : 'N/A';
@@ -421,16 +420,23 @@
                 humidity.textContent = observation.relativeHumidity.value ? `${observation.relativeHumidity.value}%` : 'N/A';
                 wind.textContent = observation.windSpeed.value ? `${observation.windSpeed.value} m/s` : 'N/A';
                 
-                // Check for alerts first
-                const tornadoWarning = alerts.find(alert => 
-                    alert.properties.event === "Tornado Warning" || 
-                    alert.properties.event === "Tornado Watch"
+                // Check for severe weather alerts
+                const tornadoAlert = alerts.find(alert => 
+                    alert.properties.event === "Tornado Warning"
                 );
                 
-                if (tornadoWarning) {
-                    showAlert(tornadoWarning);
+                if (tornadoAlert) {
+                    showAlert(tornadoAlert);
                     activity.textContent = "TAKE SHELTER NOW!";
                     activity.style.color = "#e74c3c";
+                    
+                    // Update time information
+                    const now = new Date();
+                    weatherTime.textContent = now.toLocaleTimeString();
+                    lastUpdated.textContent = now.toLocaleTimeString();
+                    
+                    // Show the weather display
+                    weatherDisplay.style.display = 'block';
                     return;
                 }
                 
@@ -438,6 +444,18 @@
                 const suggestedActivity = getActivitySuggestion(observation, forecast, alerts);
                 activity.textContent = suggestedActivity;
                 activity.style.color = "#1a7a94";
+                
+                // Check for other alerts
+                const otherAlerts = alerts.filter(alert => 
+                    alert.properties.event.includes("Warning") || 
+                    alert.properties.event.includes("Watch")
+                );
+                
+                if (otherAlerts.length > 0) {
+                    showAlert(otherAlerts[0]);
+                } else {
+                    hideAlert();
+                }
                 
                 // Update time information
                 const now = new Date();
@@ -452,9 +470,9 @@
             function showAlert(alert) {
                 alertDetails.innerHTML = `
                     <strong>${alert.properties.headline}</strong><br>
-                    ${alert.properties.description}<br>
+                    ${alert.properties.description.substring(0, 200)}...<br>
                     <em>Issued: ${new Date(alert.properties.sent).toLocaleString()}</em>
-                    ${alert.properties.instruction ? `<br><br>Instructions: ${alert.properties.instruction}` : ''}
+                    ${alert.properties.instruction ? `<br><br>Instructions: ${alert.properties.instruction.substring(0, 150)}...` : ''}
                 `;
                 alertWarning.style.display = 'block';
             }
@@ -477,7 +495,6 @@
                 );
                 
                 if (stormWarning) {
-                    showAlert(stormWarning);
                     const stormActivities = [
                         "Stay indoors and avoid windows",
                         "Prepare an emergency kit with flashlights and batteries",
@@ -580,6 +597,7 @@
             function showLoading() {
                 loadingElement.style.display = 'block';
                 weatherDisplay.style.display = 'none';
+                hideAlert();
             }
             
             function hideLoading() {
@@ -591,6 +609,7 @@
                 errorMessage.style.display = 'block';
                 weatherDisplay.style.display = 'none';
                 hideLoading();
+                hideAlert();
             }
             
             function hideError() {
@@ -601,8 +620,6 @@
             const defaultLocation = localStorage.getItem('lastLocation') || '';
             if (defaultLocation) {
                 locationInput.value = defaultLocation;
-                // Uncomment the line below to automatically load weather for the default location
-                // getWeatherData(defaultLocation);
             }
             
             // Save the location when the user enters it
