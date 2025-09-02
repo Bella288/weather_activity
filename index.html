@@ -411,14 +411,17 @@
                 // Display location information
                 locationName.textContent = locationNameText;
                 
-                // Convert temperature from Celsius to Fahrenheit
-                const tempFahrenheit = observation.temperature.value ? (observation.temperature.value * 9/5 + 32).toFixed(0) : 'N/A';
+                // Convert temperature from Celsius to Fahrenheit and round
+                const tempFahrenheit = observation.temperature.value ? Math.round(observation.temperature.value * 9/5 + 32) : 'N/A';
                 temperature.textContent = `${tempFahrenheit}°F`;
                 
-                // Display conditions, humidity, and wind
+                // Display conditions, humidity, and wind (rounded values)
                 conditions.textContent = forecast.shortForecast;
-                humidity.textContent = observation.relativeHumidity.value ? `${observation.relativeHumidity.value}%` : 'N/A';
-                wind.textContent = observation.windSpeed.value ? `${observation.windSpeed.value} m/s` : 'N/A';
+                humidity.textContent = observation.relativeHumidity.value ? `${Math.round(observation.relativeHumidity.value)}%` : 'N/A';
+                
+                // Convert wind speed from m/s to mph and round
+                const windMph = observation.windSpeed.value ? Math.round(observation.windSpeed.value * 2.23694) : 'N/A';
+                wind.textContent = observation.windSpeed.value ? `${windMph} mph` : 'N/A';
                 
                 // Check for severe weather alerts
                 const tornadoAlert = alerts.find(alert => 
