@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Activity Suggestor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6dd5ed, #2193b0);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #2193b0;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .input-section {
+            display: flex;
+            margin-bottom: 25px;
+        }
+        
+        #location-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px 0 0 8px;
+            font-size: 16px;
+        }
+        
+        #get-weather {
+            padding: 12px 20px;
+            background-color: #2193b0;
+            color: white;
+            border: none;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        #get-weather:hover {
+            background-color: #1a7a94;
+        }
+        
+        .weather-display {
+            display: none;
+            margin-bottom: 25px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .weather-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .location-name {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .current-conditions {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .weather-item {
+            text-align: center;
+            margin: 10px;
+            min-width: 100px;
+        }
+        
+        .weather-value {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .weather-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .activity-section {
+            text-align: center;
+            padding: 20px;
+            background-color: #e8f4fc;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .activity-title {
+            font-size: 18px;
+            color: #2193b0;
+            margin-bottom: 10px;
+        }
+        
+        #activity {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a7a94;
+            margin: 15px 0;
+            min-height: 36px;
+        }
+        
+        .alert-warning {
+            background-color: #ffebee;
+            border-left: 5px solid #f44336;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .alert-warning h3 {
+            color: #d32f2f;
+            margin-bottom: 10px;
+        }
+        
+        .alert-details {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .last-updated {
+            text-align: right;
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            text-align: center;
+            padding: 10px;
+            display: none;
+        }
+        
+        @media (max-width: 600px) {
+            .input-section {
+                flex-direction: column;
+            }
+            
+            #location-input {
+                border-radius: 8px;
+                margin-bottom: 10px;
+            }
+            
+            #get-weather {
+                border-radius: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Weather Activity Suggestor</h1>
+            <p class="description">Enter your location to get personalized activity suggestions based on current weather conditions</p>
+        </header>
+        
+        <div class="input-section">
+            <input type="text" id="location-input" placeholder="Enter ZIP code or address">
+            <button id="get-weather">Get Weather & Activity</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <p>Loading weather data...</p>
+        </div>
+        
+        <div class="error-message" id="error-message"></div>
+        
+        <div class="alert-warning" id="alert-warning">
+            <h3>⚠️ WEATHER ALERT</h3>
+            <div class="alert-details" id="alert-details"></div>
+        </div>
+        
+        <div class="weather-display" id="weather-display">
+            <div class="weather-header">
+                <div class="location-name" id="location-name"></div>
+                <div class="weather-time" id="weather-time"></div>
+            </div>
+            
+            <div class="current-conditions">
+                <div class="weather-item">
+                    <div class="weather-value" id="temperature"></div>
+                    <div class="weather-label">Temperature</div>
+                </div>
+                <div class="weather-item">
+                    <div class="weather-value" id="conditions"></div>
+                    <div class="weather-label">Conditions</div>
+                </div>
+                <div class="weather-item">
+                    <div class="weather-value" id="humidity"></div>
+                    <div class="weather-label">Humidity</div>
+                </div>
+                <div class="weather-item">
+                    <div class="weather-value" id="wind"></div>
+                    <div class="weather-label">Wind Speed</div>
+                </div>
+            </div>
+            
+            <div class="activity-section">
+                <div class="activity-title">Recommended Activity:</div>
+                <div id="activity"></div>
+            </div>
+            
+            <div class="last-updated">
+                Updates every minute • Last updated: <span id="last-updated"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const locationInput = document.getElementById('location-input');
+            const getWeatherBtn = document.getElementById('get-weather');
+            const weatherDisplay = document.getElementById('weather-display');
+            const loadingElement = document.getElementById('loading');
+            const errorMessage = document.getElementById('error-message');
+            const alertWarning = document.getElementById('alert-warning');
+            const alertDetails = document.getElementById('alert-details');
+            const locationName = document.getElementById('location-name');
+            const weatherTime = document.getElementById('weather-time');
+            const temperature = document.getElementById('temperature');
+            const conditions = document.getElementById('conditions');
+            const humidity = document.getElementById('humidity');
+            const wind = document.getElementById('wind');
+            const activity = document.getElementById('activity');
+            const lastUpdated = document.getElementById('last-updated');
+            
+            let updateInterval;
+            let currentCoordinates = null;
+            let currentZoneId = null;
+            
+            // Event listener for the get weather button
+            getWeatherBtn.addEventListener('click', function() {
+                const location = locationInput.value.trim();
+                if (location) {
+                    getWeatherData(location);
+                } else {
+                    showError('Please enter a ZIP code or address');
+                }
+            });
+            
+            // Function to get weather data based on location
+            async function getWeatherData(location) {
+                showLoading();
+                hideError();
+                hideAlert();
+                
+                try {
+                    // First, geocode the location to get coordinates
+                    const geocodeResponse = await fetch(`https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(location)}&benchmark=2020&format=json`);
+                    const geocodeData = await geocodeResponse.json();
+                    
+                    if (geocodeData.result.addressMatches.length === 0) {
+                        throw new Error('Location not found. Please try a different ZIP code or address.');
+                    }
+                    
+                    const coordinates = geocodeData.result.addressMatches[0].coordinates;
+                    currentCoordinates = coordinates;
+                    
+                    // Get the NWS grid point based on coordinates
+                    const pointsResponse = await fetch(`https://api.weather.gov/points/${coordinates.y},${coordinates.x}`);
+                    if (!pointsResponse.ok) {
+                        throw new Error('Unable to fetch weather data for this location.');
+                    }
+                    const pointsData = await pointsResponse.json();
+                    
+                    // Get the forecast for the grid point
+                    const forecastResponse = await fetch(pointsData.properties.forecast);
+                    if (!forecastResponse.ok) {
+                        throw new Error('Unable to fetch forecast data.');
+                    }
+                    const forecastData = await forecastResponse.json();
+                    
+                    // Get the current observation data
+                    const observationResponse = await fetch(pointsData.properties.observationStations);
+                    if (!observationResponse.ok) {
+                        throw new Error('Unable to fetch observation stations.');
+                    }
+                    const observationData = await observationResponse.json();
+                    
+                    // Get the latest observation from the first station
+                    const stationsResponse = await fetch(observationData.features[0].id + '/observations/latest');
+                    if (!stationsResponse.ok) {
+                        throw new Error('Unable to fetch current observations.');
+                    }
+                    const stationsData = await stationsResponse.json();
+                    
+                    // Get zone ID for alerts
+                    currentZoneId = pointsData.properties.county.split('/').pop();
+                    
+                    // Check for active alerts
+                    const alertsResponse = await fetch(`https://api.weather.gov/alerts/active/zone/${currentZoneId}`);
+                    let activeAlerts = [];
+                    if (alertsResponse.ok) {
+                        const alertsData = await alertsResponse.json();
+                        activeAlerts = alertsData.features;
+                    }
+                    
+                    // Display the weather data
+                    displayWeatherData(pointsData.properties.relativeLocation.properties, stationsData.properties, forecastData.properties.periods[0], activeAlerts);
+                    
+                    // Start the update interval (every minute)
+                    if (updateInterval) {
+                        clearInterval(updateInterval);
+                    }
+                    updateInterval = setInterval(() => {
+                        if (currentCoordinates) {
+                            updateWeatherData(currentCoordinates, currentZoneId);
+                        }
+                    }, 60000);
+                    
+                } catch (error) {
+                    showError(error.message);
+                } finally {
+                    hideLoading();
+                }
+            }
+            
+            // Function to update weather data using coordinates
+            async function updateWeatherData(coordinates, zoneId) {
+                try {
+                    // Get the NWS grid point based on coordinates
+                    const pointsResponse = await fetch(`https://api.weather.gov/points/${coordinates.y},${coordinates.x}`);
+                    if (!pointsResponse.ok) {
+                        throw new Error('Unable to fetch updated weather data.');
+                    }
+                    const pointsData = await pointsResponse.json();
+                    
+                    // Get the current observation data
+                    const observationResponse = await fetch(pointsData.properties.observationStations);
+                    if (!observationResponse.ok) {
+                        throw new Error('Unable to fetch updated observation stations.');
+                    }
+                    const observationData = await observationResponse.json();
+                    
+                    // Get the latest observation from the first station
+                    const stationsResponse = await fetch(observationData.features[0].id + '/observations/latest');
+                    if (!stationsResponse.ok) {
+                        throw new Error('Unable to fetch updated observations.');
+                    }
+                    const stationsData = await stationsResponse.json();
+                    
+                    // Get the forecast for the grid point
+                    const forecastResponse = await fetch(pointsData.properties.forecast);
+                    if (!forecastResponse.ok) {
+                        throw new Error('Unable to fetch updated forecast data.');
+                    }
+                    const forecastData = await forecastResponse.json();
+                    
+                    // Check for active alerts
+                    const alertsResponse = await fetch(`https://api.weather.gov/alerts/active/zone/${zoneId}`);
+                    let activeAlerts = [];
+                    if (alertsResponse.ok) {
+                        const alertsData = await alertsResponse.json();
+                        activeAlerts = alertsData.features;
+                    }
+                    
+                    // Update the weather display
+                    displayWeatherData(pointsData.properties.relativeLocation.properties, stationsData.properties, forecastData.properties.periods[0], activeAlerts);
+                    
+                } catch (error) {
+                    console.error('Error updating weather data:', error);
+                }
+            }
+            
+            // Function to display weather data
+            function displayWeatherData(locationProps, observation, forecast, alerts) {
+                // Display location information
+                locationName.textContent = `${locationProps.city}, ${locationProps.state}`;
+                
+                // Convert temperature from Celsius to Fahrenheit
+                const tempFahrenheit = observation.temperature.value ? (observation.temperature.value * 9/5 + 32).toFixed(0) : 'N/A';
+                temperature.textContent = `${tempFahrenheit}°F`;
+                
+                // Display conditions, humidity, and wind
+                conditions.textContent = forecast.shortForecast;
+                humidity.textContent = observation.relativeHumidity.value ? `${observation.relativeHumidity.value}%` : 'N/A';
+                wind.textContent = observation.windSpeed.value ? `${observation.windSpeed.value} m/s` : 'N/A';
+                
+                // Check for alerts first
+                const tornadoWarning = alerts.find(alert => 
+                    alert.properties.event === "Tornado Warning" || 
+                    alert.properties.event === "Tornado Watch"
+                );
+                
+                if (tornadoWarning) {
+                    showAlert(tornadoWarning);
+                    activity.textContent = "TAKE SHELTER NOW!";
+                    activity.style.color = "#e74c3c";
+                    return;
+                }
+                
+                // Get and display activity suggestion
+                const suggestedActivity = getActivitySuggestion(observation, forecast, alerts);
+                activity.textContent = suggestedActivity;
+                activity.style.color = "#1a7a94";
+                
+                // Update time information
+                const now = new Date();
+                weatherTime.textContent = now.toLocaleTimeString();
+                lastUpdated.textContent = now.toLocaleTimeString();
+                
+                // Show the weather display
+                weatherDisplay.style.display = 'block';
+            }
+            
+            // Function to show alert details
+            function showAlert(alert) {
+                alertDetails.innerHTML = `
+                    <strong>${alert.properties.headline}</strong><br>
+                    ${alert.properties.description}<br>
+                    <em>Issued: ${new Date(alert.properties.sent).toLocaleString()}</em>
+                    ${alert.properties.instruction ? `<br><br>Instructions: ${alert.properties.instruction}` : ''}
+                `;
+                alertWarning.style.display = 'block';
+            }
+            
+            // Function to hide alert
+            function hideAlert() {
+                alertWarning.style.display = 'none';
+            }
+            
+            // Function to get activity suggestion based on weather conditions
+            function getActivitySuggestion(observation, forecast, alerts) {
+                const tempFahrenheit = observation.temperature.value ? (observation.temperature.value * 9/5 + 32) : null;
+                const shortForecast = forecast.shortForecast.toLowerCase();
+                
+                // Check for storm warnings first
+                const stormWarning = alerts.find(alert => 
+                    alert.properties.event.includes("Storm") || 
+                    alert.properties.event.includes("Thunderstorm") ||
+                    alert.properties.event.includes("Hurricane")
+                );
+                
+                if (stormWarning) {
+                    showAlert(stormWarning);
+                    const stormActivities = [
+                        "Stay indoors and avoid windows",
+                        "Prepare an emergency kit with flashlights and batteries",
+                        "Charge your devices in case of power outage",
+                        "Move to an interior room or basement if necessary",
+                        "Avoid using electrical equipment and plumbing"
+                    ];
+                    return stormActivities[Math.floor(Math.random() * stormActivities.length)];
+                }
+                
+                // Stormy weather (without official warnings)
+                if (shortForecast.includes('thunderstorm') || shortForecast.includes('storm')) {
+                    const stormActivities = [
+                        "Stay indoors and avoid windows",
+                        "Watch a movie with the sound of rain in the background",
+                        "Read a book with a warm drink",
+                        "Prepare an emergency kit just in case",
+                        "Charge your devices in case of power outage"
+                    ];
+                    return stormActivities[Math.floor(Math.random() * stormActivities.length)];
+                }
+                
+                // Hot weather activities
+                if (tempFahrenheit && tempFahrenheit > 85) {
+                    const hotActivities = [
+                        "Go swimming at a local pool or beach",
+                        "Visit a water park to cool off",
+                        "Water your plants and stay hydrated",
+                        "Stay indoors with air conditioning",
+                        "Enjoy a cold treat like ice cream",
+                        "Have a water balloon fight",
+                        "Go to a movie theater to escape the heat"
+                    ];
+                    return hotActivities[Math.floor(Math.random() * hotActivities.length)];
+                }
+                
+                // Cold with snow activities
+                if (tempFahrenheit && tempFahrenheit < 32 && (shortForecast.includes('snow') || shortForecast.includes('wintry'))) {
+                    const snowActivities = [
+                        "Build a snowman or snow fort",
+                        "Go sledding or skiing",
+                        "Shovel your driveway (if needed)",
+                        "Have a hot chocolate by the fireplace",
+                        "Go ice skating at a local rink",
+                        "Make snow angels",
+                        "Bake cookies and enjoy them warm"
+                    ];
+                    return snowActivities[Math.floor(Math.random() * snowActivities.length)];
+                }
+                
+                // Cold without snow activities
+                if (tempFahrenheit && tempFahrenheit < 45) {
+                    const coldActivities = [
+                        "Visit a local museum or gallery",
+                        "Read a book by the window",
+                        "Go to a coffee shop for a warm drink",
+                        "Do some indoor exercises or yoga",
+                        "Cook a warm, hearty meal",
+                        "Visit an indoor market or mall",
+                        "Plan your next vacation"
+                    ];
+                    return coldActivities[Math.floor(Math.random() * coldActivities.length)];
+                }
+                
+                // Mild/pleasant weather activities
+                if (tempFahrenheit && tempFahrenheit >= 45 && tempFahrenheit <= 75) {
+                    const mildActivities = [
+                        "Go for a hike or nature walk",
+                        "Have a picnic at a local park",
+                        "Ride a bike on a scenic trail",
+                        "Visit a botanical garden",
+                        "Play outdoor sports like frisbee or soccer",
+                        "Go fishing at a nearby lake",
+                        "Do some gardening or yard work",
+                        "Visit the zoo",
+                        "Go to a museum"
+                    ];
+                    return mildActivities[Math.floor(Math.random() * mildActivities.length)];
+                }
+                
+                // Rainy weather activities
+                if (shortForecast.includes('rain') || shortForecast.includes('shower')) {
+                    const rainyActivities = [
+                        "Visit a local library or bookstore",
+                        "Bake something delicious",
+                        "Watch a movie marathon",
+                        "Do a puzzle or play board games",
+                        "Visit an indoor trampoline park",
+                        "Clean and organize your home",
+                        "Try a new recipe for dinner",
+                    ];
+                    return rainyActivities[Math.floor(Math.random() * rainyActivities.length)];
+                }
+                
+                // Default activity suggestion
+                return "Enjoy the day! Consider taking a walk to appreciate the current weather conditions.";
+            }
+            
+            // Helper functions for UI state management
+            function showLoading() {
+                loadingElement.style.display = 'block';
+                weatherDisplay.style.display = 'none';
+            }
+            
+            function hideLoading() {
+                loadingElement.style.display = 'none';
+            }
+            
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                weatherDisplay.style.display = 'none';
+                hideLoading();
+            }
+            
+            function hideError() {
+                errorMessage.style.display = 'none';
+            }
+            
+            // Initialize with a default location or previously used location
+            const defaultLocation = localStorage.getItem('lastLocation') || '';
+            if (defaultLocation) {
+                locationInput.value = defaultLocation;
+                // Uncomment the line below to automatically load weather for the default location
+                // getWeatherData(defaultLocation);
+            }
+            
+            // Save the location when the user enters it
+            locationInput.addEventListener('blur', function() {
+                if (locationInput.value.trim()) {
+                    localStorage.setItem('lastLocation', locationInput.value.trim());
+                }
+            });
+        });
+    </script>
+</body>
+</html>
